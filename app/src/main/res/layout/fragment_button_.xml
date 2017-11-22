@@ -1,0 +1,26 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_weight="10"
+    android:orientation="horizontal"
+    tools:context="com.example.user.hikerswatch.Button_Frag">
+
+    <Switch
+        android:id="@+id/kmhSwitch"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:layout_weight="5"
+        android:text="KM/h"
+        android:textColor="@color/colorPrimary" />
+
+    <Switch
+        android:id="@+id/HybridSwitch"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="5dp"
+        android:layout_weight="5"
+        android:text="Hybrid View"
+        android:textColor="@color/colorPrimary" />
+</LinearLayout>
