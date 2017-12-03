@@ -2,15 +2,16 @@ package com.example.user.hikerswatch;
 
 
 import android.Manifest;
+import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
@@ -39,25 +40,29 @@ import java.util.Locale;
 /**
  * A simple {@link Fragment} subclass.
  */
-public class MapFragment extends Fragment implements OnMapReadyCallback {
-
+public class MapFragment extends Fragment implements OnMapReadyCallback, GetLoctionUpdates {
     GoogleMap mMap;
     SupportMapFragment mapFragment;
-    LocationManager locationManager;
-    LocationListener locationListener;
+
+    // GPSTracker class
+    GPSTracker gps;
+
+    // LogCat tag
+    private static final String TAG = "MAP";
+    private static final int REQUEST_PERMISSIONS_REQUEST_CODE = 111;
+    /// Dialog
+    ProgressDialog dialog;
+
+    private Location mLastLocation;
+
+
     double speed = 0;
-
-    boolean bSpped =  false;
-
-
-    private Location mLastLocation = null;
+    boolean bSpped = false;
 
     ClassB classB;
     String address = "";
 
-    public MapFragment() {
-        // Required empty public constructor
-    }
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -73,73 +78,39 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             fragmentTransaction.replace(R.id.MyMapID, mapFragment).commit();
         }
         mapFragment.getMapAsync(this);
+
         return view;
     }
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mLastLocation = null;
         mMap = googleMap;
         classB = new ClassB(getActivity());
-        permission();
-    }
 
+        if(ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
 
-    private void permission() {
-        locationManager = (LocationManager) getActivity().getSystemService(Context.LOCATION_SERVICE);
-
-        locationListener = new LocationListener() {
-            @Override
-            public void onLocationChanged(Location location) {
-                address = "";
-                if (location != null) {
-                    GetSpeed(location);
-                    GetGeoAddress(location);
-                    CenterMapLocation(location, "Your Location");
-                }
-
-            }
-
-            @Override
-            public void onStatusChanged(String s, int i, Bundle bundle) {
-
-            }
-
-            @Override
-            public void onProviderEnabled(String s) {
-            }
-
-            @Override
-            public void onProviderDisabled(String s) {
-            }
-        };
-
-        if (Build.VERSION.SDK_INT < 23) {
-
-            if (ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, locationListener);
-            }
-
-        } else {
-            if (ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 111);
-            } else {
-
-
-                if (ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    {
-
-                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, locationListener);
-                        Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-
-                        if (lastKnownLocation != null) {
-                            CenterMapLocation(lastKnownLocation, "Your Location");
-                        }
-                    }
-                }
+            gps = new GPSTracker(getActivity(), this);
+            if (gps.location != null) {
+                CenterMapLocation(gps.location, "My Location");
             }
         }
+        else{
+            GetLocationPermission();
+        }
+
+      
+        
     }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+      //  gps = new GPSTracker(getActivity(), this);
+        Log.i("START", "ON START");
+    }
+
 
 
     protected void MapViewChange(boolean flag) {
@@ -147,6 +118,13 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
         } else {
             mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        }
+    }
+    protected void GetLocationPermission(){
+        if(Build.VERSION.SDK_INT >= 23 && ActivityCompat.checkSelfPermission(getActivity(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+        {
+            Log.d("ARIFFFF", "Permission");
+            ActivityCompat.requestPermissions((Activity) getActivity(), new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 111);
         }
     }
 
@@ -159,7 +137,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
             double lat2 = pCurrentLocation.getLatitude();
             double lng2 = pCurrentLocation.getLongitude();
 
-            double elapsedTime = (pCurrentLocation.getTime() - mLastLocation.getTime()) / 1000; // Convert milliseconds to seconds
+            double elapsedTime = (pCurrentLocation.getTime() - mLastLocation.getTime()) / (1000); // Convert milliseconds to Minute
 
             double dLat = Math.toRadians(lat2 - lat1);
             double dLon = Math.toRadians(lng2 - lng1);
@@ -172,21 +150,21 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
 
             double distanceInMeter = Math.round(6371000 * c);
 
+            Log.i(TAG, "Distance " + Double.toString(distanceInMeter));
+
             speed = distanceInMeter / elapsedTime;
         }
 
         this.mLastLocation = pCurrentLocation;
 
 
-        if(speed > 0 ) {
+        if (speed > 0) {
             if (bSpped) {
                 classB.Update_Speed_View((speed * 18) / 5, "km/h");
             } else {
                 classB.Update_Speed_View(speed, "m/s");
             }
-        }
-        else
-        {
+        } else {
             classB.Update_Speed_View(0, "");
         }
 
@@ -232,9 +210,19 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
     }
 
 
-    public  void ChangeSpeedUnit(boolean bool)
-    {
-        bSpped =  bool;
+    public void ChangeSpeedUnit(boolean bool) {
+        bSpped = bool;
+    }
+
+
+    @Override
+    public void OnLocationChangedInterface(Location location) {
+        //  Log.i(TAG, location.toString());
+        address = "";
+
+        GetSpeed(location);
+        GetGeoAddress(location);
+        CenterMapLocation(location, "Your Location");
     }
 
     @Override
@@ -244,9 +232,17 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         if (requestCode == 111) {
             if (grantResults.length > 0) {
                 if (ContextCompat.checkSelfPermission(getActivity().getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1, locationListener);
-                    Location lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                    CenterMapLocation(lastKnownLocation, "Your Location");
+
+                    Log.i("ARIFFF", "Dukse -_- ");
+                    gps = new GPSTracker(getActivity(), this);
+
+                    gps.getLocation();
+
+                    if (gps.location != null) {
+
+                        CenterMapLocation(gps.location, "My Location");
+
+                    }
                 }
             } else {
                 Toast.makeText(getActivity().getApplicationContext(), " Permission Not Granted ", Toast.LENGTH_SHORT).show();
@@ -254,3 +250,7 @@ public class MapFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 }
+
+
+
+
